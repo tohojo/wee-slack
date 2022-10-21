@@ -162,8 +162,11 @@ class WeeChatOption(Generic[WeeChatOptionType]):
 
     @property
     def value(self) -> WeeChatOptionType:
-        if weechat.config_option_is_null(self.pointer) and self.parent_option:
-            option_pointer = self.parent_option.pointer
+        if weechat.config_option_is_null(self.pointer):
+            if self.parent_option:
+                option_pointer = self.parent_option.pointer
+            else:
+                return self.default_value
         else:
             option_pointer = self.pointer
 
@@ -186,12 +189,14 @@ class WeeChatOption(Generic[WeeChatOptionType]):
             return "color"
         return "string"
 
-    def _create_weechat_option(
-        self,
-    ) -> str:
-        default_section = self.parent_option.section if self.parent_option else None
-        if default_section and self.section != default_section:
-            name = f"{self.name} << {default_section.config.name}.{default_section.name}.{self.name}"
+    def _create_weechat_option(self) -> str:
+        if self.parent_option:
+            parent_option_name = (
+                f"{self.parent_option.section.config.name}"
+                f".{self.parent_option.section.name}"
+                f".{self.parent_option.name}"
+            )
+            name = f"{self.name} << {parent_option_name}"
             default_value = None
             null_value_allowed = True
         else:
