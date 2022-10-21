@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from enum import IntEnum
 from io import StringIO
 import json
@@ -15,7 +16,7 @@ from typing import (
     TypeVar,
     Union,
 )
-from typing import Coroutine
+from typing import Awaitable, Coroutine
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -64,7 +65,7 @@ class HttpError(Exception):
         self.error = error
 
 
-class Future(Generic[T]):
+class Future(Awaitable[T]):
     def __init__(self):
         self.id = str(uuid4())
 
@@ -99,6 +100,102 @@ def available_file_descriptors():
     num_current_file_descriptors = len(os.listdir("/proc/self/fd/"))
     max_file_descriptors = min(resource.getrlimit(resource.RLIMIT_NOFILE))
     return max_file_descriptors - num_current_file_descriptors
+
+
+### WeeChat classes
+
+
+class WeeChatColor(str):
+    pass
+
+
+WeeChatOptionType = TypeVar("WeeChatOptionType", bool, int, WeeChatColor, str)
+
+
+@dataclass
+class WeeChatOption(Generic[WeeChatOptionType]):
+    default_value: WeeChatOptionType
+    description: str
+
+    @property
+    def weechat_type(self) -> str:
+        if isinstance(self.default_value, bool):
+            return "boolean"
+        if isinstance(self.default_value, int):
+            return "integer"
+        if isinstance(self.default_value, WeeChatColor):
+            return "color"
+        return "string"
+
+    @property
+    def default_value_str(self) -> str:
+        return str(self.default_value)
+
+    def asd(self) -> WeeChatOptionType:
+        d = self.default_value
+        if isinstance(self.default_value, bool):
+            a = self.default_value
+            return True
+        if type(d) is bool:
+            a = d
+            return True
+        return self.default_value
+
+a: str | int = 0
+
+if type(a) is bool:
+    b = a
+
+from typing import Type
+
+def g(klass: Type[T], obj: Union[T, int]) -> T:
+    # assert isinstance(obj, klass)
+    assert type(obj) is klass
+    return obj  # ERROR, though `obj` has type `klass`
+
+def g2(klass: Type[T], obj: Any) -> T:
+    # assert isinstance(obj, klass)
+    assert type(obj) is klass
+    return obj # ERROR, though `obj` has type `klass`
+
+def g3(klass: Type[WeeChatOptionType], obj: WeeChatOptionType) -> WeeChatOptionType:
+    # assert isinstance(obj, bool)
+    assert type(obj) is bool
+    return True
+
+
+@dataclass
+class WeeChatOption2(Generic[WeeChatOptionType]):
+    type2: Type[WeeChatOptionType]
+    # default_value: WeeChatOptionType
+    pointer: str
+
+    # @property
+    # def value(self) -> WeeChatOptionType:
+    #     # if isinstance(self.type2(), bool):
+    #     #     return True
+    #     if self.type2 == bool:
+    #         return True
+    #     if self.type2 == int:
+    #         return 0
+    #     if self.type2 == WeeChatColor:
+    #         return WeeChatColor("color")
+    #     if self.type2 == str:
+    #         return "string"
+    #     return "unknown"
+    #     # if isinstance(self.default_value, bool):
+    #     #     return True
+    #     # if isinstance(self.default_value, int):
+    #     #     return 0
+    #     # if isinstance(self.default_value, WeeChatColor):
+    #     #     return WeeChatColor("color")
+    #     # return "string"
+
+
+# print("bool", WeeChatOption2(bool, "").value)
+# print("int", WeeChatOption2(int, "").value)
+# print(WeeChatColor("asd"), WeeChatOption2(WeeChatColor, "").value)
+# print("str", WeeChatOption2(str, "").value)
 
 
 ### WeeChat callbacks
@@ -245,6 +342,16 @@ async def http_request(
 ### Slack Classes
 
 
+workspace_options = {
+    "autoconnect": WeeChatOption(
+        True, "automatically connect to workspace when WeeChat is starting"
+    ),
+    "asd": WeeChatOption(
+        "asd", "automatically connect to workspace when WeeChat is starting"
+    ),
+}
+
+
 class SlackConfig:
     def __init__(self):
         self.config_file = weechat.config_new("slack", "", "")
@@ -265,6 +372,36 @@ class SlackConfig:
             "30",
         )
 
+        self._workspace_default_options = {
+            name: self.config_new_option(
+                self.section_workspace_default,
+                name,
+                option.weechat_type,
+                option.description,
+                "",
+                0,
+                0,
+                option.default_value_str,
+            )
+            for name, option in workspace_options.items()
+        }
+
+        self._workspace_options = {
+            name: self.config_new_option(
+                self.section_workspace,
+                f"wee-slack-test.{name} << slack.workspace_default.{name}",
+                option.weechat_type,
+                option.description,
+                "",
+                0,
+                0,
+                None,
+                option.default_value_str,
+                True,
+            )
+            for name, option in workspace_options.items()
+        }
+
         weechat.config_read(self.config_file)
         weechat.config_write(self.config_file)
 
@@ -272,8 +409,21 @@ class SlackConfig:
     def slack_timeout(self):
         return weechat.config_integer(self._slack_timeout)
 
+    # def get_workspace_option(
+    #     self, workspace_name: str | None, option: WeeChatOption[WeeChatOptionType]
+    # ) -> WeeChatOptionType:
+    #     workspace = (
+    #         self._workspace_options
+    #         if workspace_name is not None
+    #         else self._workspace_default_options
+    #     )
+    #     return workspace[name]
+
     def config_new_section(
-        self, name: str, user_can_add_options: int = 0, user_can_delete_options: int = 0
+        self,
+        name: str,
+        user_can_add_options: bool = False,
+        user_can_delete_options: bool = False,
     ) -> str:
         return weechat.config_new_section(
             self.config_file,
@@ -302,9 +452,12 @@ class SlackConfig:
         min: int,
         max: int,
         default_value: str | None,
-        null_value_allowed: int = 0,
+        value_if_null_not_supported: str | None = None,
+        null_value_allowed: bool = False,
     ) -> str:
-        value = None if weechat_version >= 0x3050000 else default_value
+        # value = None if weechat_version >= 0x3050000 else default_value
+        if default_value is None and weechat_version < 0x3050000:
+            default_value = value_if_null_not_supported
         return weechat.config_new_option(
             self.config_file,
             section,
@@ -315,7 +468,7 @@ class SlackConfig:
             min,
             max,
             default_value,
-            value,
+            default_value,  # value,
             null_value_allowed,
             "",
             "",
