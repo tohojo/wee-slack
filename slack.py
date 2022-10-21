@@ -199,10 +199,6 @@ class WeeChatOption(Generic[WeeChatOptionType]):
         self,
         workspace_name: str | None = None,
     ) -> str:
-        # value = None if weechat_version >= 0x3050000 else default_value
-        # if default_value is None and weechat_version < 0x3050000:
-        #     default_value = value_if_null_not_supported
-
         if workspace_name:
             name = f"{workspace_name}.{self.name} << {self.default_section.config.name}.{self.default_section.name}.{self.name}"
             section = self.workspace_section
@@ -239,76 +235,6 @@ class WeeChatOption(Generic[WeeChatOptionType]):
             "",
             "",
         )
-
-    # def asd(self) -> WeeChatOptionType:
-    #     d = self.default_value
-    #     if isinstance(self.default_value, bool):
-    #         a = self.default_value
-    #         return True
-    #     if type(d) is bool:
-    #         a = d
-    #         return True
-    #     return self.default_value
-
-
-# a: str | int = 0
-#
-# if type(a) is bool:
-#     b = a
-#
-# from typing import Type
-#
-#
-# def g(klass: Type[T], obj: Union[T, int]) -> T:
-#     # assert isinstance(obj, klass)
-#     assert type(obj) is klass
-#     return obj  # ERROR, though `obj` has type `klass`
-#
-#
-# def g2(klass: Type[T], obj: Any) -> T:
-#     # assert isinstance(obj, klass)
-#     assert type(obj) is klass
-#     return obj  # ERROR, though `obj` has type `klass`
-#
-#
-# def g3(klass: Type[WeeChatOptionType], obj: WeeChatOptionType) -> WeeChatOptionType:
-#     # assert isinstance(obj, bool)
-#     assert type(obj) is bool
-#     return True
-
-
-# @dataclass
-# class WeeChatOption2(Generic[WeeChatOptionType]):
-#     type2: Type[WeeChatOptionType]
-#     # default_value: WeeChatOptionType
-#     pointer: str
-#
-#     # @property
-#     # def value(self) -> WeeChatOptionType:
-#     #     # if isinstance(self.type2(), bool):
-#     #     #     return True
-#     #     if self.type2 == bool:
-#     #         return True
-#     #     if self.type2 == int:
-#     #         return 0
-#     #     if self.type2 == WeeChatColor:
-#     #         return WeeChatColor("color")
-#     #     if self.type2 == str:
-#     #         return "string"
-#     #     return "unknown"
-#     #     # if isinstance(self.default_value, bool):
-#     #     #     return True
-#     #     # if isinstance(self.default_value, int):
-#     #     #     return 0
-#     #     # if isinstance(self.default_value, WeeChatColor):
-#     #     #     return WeeChatColor("color")
-#     #     # return "string"
-
-
-# print("bool", WeeChatOption2(bool, "").value)
-# print("int", WeeChatOption2(int, "").value)
-# print(WeeChatColor("asd"), WeeChatOption2(WeeChatColor, "").value)
-# print("str", WeeChatOption2(str, "").value)
 
 
 ### WeeChat callbacks
@@ -455,22 +381,9 @@ async def http_request(
 ### Slack Classes
 
 
-# workspace_options = {
-#     "autoconnect": WeeChatOption(
-#         True, "automatically connect to workspace when WeeChat is starting"
-#     ),
-#     "asd": WeeChatOption(
-#         "asd", "automatically connect to workspace when WeeChat is starting"
-#     ),
-# }
-
-
 class SlackConfig:
     def __init__(self):
         self.config = WeeChatConfig("slack")
-        # self.section_look = self.config_new_section("look")
-        # self.section_color = self.config_new_section("color")
-        # self.section_network = self.config_new_section("network")
         self.section_workspace_default = WeeChatSection(
             self.config, "workspace_default"
         )
@@ -493,122 +406,8 @@ class SlackConfig:
         #     if isinstance(attr, WeeChatOption):
         #         print(attr.weechat_type)
 
-        # self._slack_timeout = self.config_new_option(
-        #     self.section_network,
-        #     "slack_timeout",
-        #     "integer",
-        #     "timeout (in seconds) for network requests",
-        #     "",
-        #     0,
-        #     3600,
-        #     "30",
-        # )
-
-        # self._workspace_default_options = {
-        #     name: self.config_new_option(
-        #         self.section_workspace_default,
-        #         name,
-        #         option.weechat_type,
-        #         option.description,
-        #         "",
-        #         0,
-        #         0,
-        #         option.default_value_str,
-        #     )
-        #     for name, option in workspace_options.items()
-        # }
-        #
-        # self._workspace_options = {
-        #     name: self.config_new_option(
-        #         self.section_workspace,
-        #         f"wee-slack-test.{name} << slack.workspace_default.{name}",
-        #         option.weechat_type,
-        #         option.description,
-        #         "",
-        #         0,
-        #         0,
-        #         None,
-        #         option.default_value_str,
-        #         True,
-        #     )
-        #     for name, option in workspace_options.items()
-        # }
-
         weechat.config_read(self.config.pointer)
         weechat.config_write(self.config.pointer)
-
-    # @property
-    # def slack_timeout(self):
-    #     return weechat.config_integer(self._slack_timeout)
-
-    # def get_workspace_option(
-    #     self, workspace_name: str | None, option: WeeChatOption[WeeChatOptionType]
-    # ) -> WeeChatOptionType:
-    #     workspace = (
-    #         self._workspace_options
-    #         if workspace_name is not None
-    #         else self._workspace_default_options
-    #     )
-    #     return workspace[name]
-
-    def config_new_section(
-        self,
-        name: str,
-        user_can_add_options: bool = False,
-        user_can_delete_options: bool = False,
-    ) -> str:
-        return weechat.config_new_section(
-            self.config.pointer,
-            name,
-            user_can_add_options,
-            user_can_delete_options,
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        )
-
-    def config_new_option(
-        self,
-        section: str,
-        name: str,
-        type: str,
-        description: str,
-        string_values: str,
-        min: int,
-        max: int,
-        default_value: str | None,
-        value_if_null_not_supported: str | None = None,
-        null_value_allowed: bool = False,
-    ) -> str:
-        # value = None if weechat_version >= 0x3050000 else default_value
-        if default_value is None and weechat_version < 0x3050000:
-            default_value = value_if_null_not_supported
-        return weechat.config_new_option(
-            self.config.pointer,
-            section,
-            name,
-            type,
-            description,
-            string_values,
-            min,
-            max,
-            default_value,
-            default_value,  # value,
-            null_value_allowed,
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        )
 
 
 class SlackToken(NamedTuple):
