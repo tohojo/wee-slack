@@ -38,8 +38,8 @@ class SlackConfigSectionColor:
         self.reaction_suffix = WeeChatOption(
             self._section,
             "reaction_suffix",
-            "text color for the [:wave:(@user)] suffix on messages that have "
-            "reactions attached to them.",
+            "text color for the [:wave:(@user)] suffix on messages that have"
+            " reactions attached to them.",
             WeeChatColor("darkgray"),
         )
 
@@ -82,6 +82,14 @@ class SlackConfigSectionWorkspace:
         self.thread_messages_in_channel = self._create_option(
             "thread_messages_in_channel",
             "display thread messages in the parent channel",
+            False,
+        )
+
+        self.use_real_names = self._create_option(
+            "use_real_names",
+            "use real names as the nicks for all users. When this is"
+            " false, display names will be used if set, with a fallback"
+            " to the real name if display name is not set",
             False,
         )
 
