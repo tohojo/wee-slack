@@ -156,6 +156,13 @@ class SlackConfigSectionLook:
             False,
         )
 
+        self.display_thread_replies_in_channel = WeeChatOption(
+            self._section,
+            "display_thread_replies_in_channel",
+            "display thread replies in the parent channel; can be overriden per buffer with the buffer localvar display_thread_replies_in_channel; note that it only takes effect for new messages",
+            False,
+        )
+
         self.external_user_suffix = WeeChatOption(
             self._section,
             "external_user_suffix",
@@ -241,12 +248,6 @@ class SlackConfigSectionWorkspace:
             "network_timeout",
             "timeout (in seconds) for network requests",
             30,
-        )
-
-        self.thread_messages_in_channel = self._create_option(
-            "thread_messages_in_channel",
-            "display thread messages in the parent channel",
-            False,
         )
 
         self.use_real_names = self._create_option(
