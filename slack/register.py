@@ -5,7 +5,6 @@ import weechat
 from slack.commands import register_commands
 from slack.config import SlackConfig
 from slack.shared import shared
-from slack.slack_conversation import get_conversation_from_buffer_pointer
 from slack.slack_emoji import load_standard_emojis
 from slack.task import run_async, sleep
 from slack.util import get_callback_name, with_color
@@ -21,7 +20,7 @@ def shutdown_cb():
 
 
 def signal_buffer_switch_cb(data: str, signal: str, buffer_pointer: str) -> int:
-    conversation = get_conversation_from_buffer_pointer(buffer_pointer)
+    conversation = shared.buffers.get(buffer_pointer)
     if conversation:
         run_async(conversation.buffer_switched_to())
     return weechat.WEECHAT_RC_OK
@@ -38,7 +37,7 @@ def input_text_cursor_moved_cb(data: str, signal: str, buffer_pointer: str) -> i
 
 
 def reset_completion_context_on_input(buffer_pointer: str):
-    conversation = get_conversation_from_buffer_pointer(buffer_pointer)
+    conversation = shared.buffers.get(buffer_pointer)
     if conversation and conversation.completion_context != "IN_PROGRESS_COMPLETION":
         conversation.completion_context = "NO_COMPLETION"
 
@@ -47,7 +46,7 @@ def modifier_input_text_display_with_cursor_cb(
     data: str, modifier: str, buffer_pointer: str, string: str
 ) -> str:
     prefix = ""
-    conversation = get_conversation_from_buffer_pointer(buffer_pointer)
+    conversation = shared.buffers.get(buffer_pointer)
     if conversation:
         input_delim_color = weechat.config_string(
             weechat.config_get("weechat.bar.input.color_delim")
@@ -70,12 +69,12 @@ def modifier_input_text_display_with_cursor_cb(
 
 
 def typing_self_cb(data: str, signal: str, signal_data: str) -> int:
-    if not shared.config.look.typing_status_self:
+    if not shared.config.look.typing_status_self or signal != "typing_self_typing":
         return weechat.WEECHAT_RC_OK
 
-    conversation = get_conversation_from_buffer_pointer(signal_data)
+    conversation = shared.buffers.get(signal_data)
     if conversation:
-        conversation.typing_update_self(signal)
+        conversation.set_typing_self()
     return weechat.WEECHAT_RC_OK
 
 

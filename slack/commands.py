@@ -13,10 +13,9 @@ from slack.error import SlackError, SlackRtmError, UncaughtError
 from slack.log import print_error
 from slack.python_compatibility import format_exception, removeprefix, removesuffix
 from slack.shared import shared
-from slack.slack_conversation import (
-    SlackConversation,
-    get_conversation_from_buffer_pointer,
-)
+from slack.slack_buffer import SlackBuffer
+from slack.slack_conversation import SlackConversation
+from slack.slack_thread import SlackThread
 from slack.slack_user import name_from_user_info_without_spaces
 from slack.slack_workspace import SlackWorkspace
 from slack.task import run_async
@@ -143,7 +142,7 @@ def command_slack_connect(
             else:
                 workspace_connect(workspace)
     else:
-        conversation = get_conversation_from_buffer_pointer(buffer)
+        conversation = shared.buffers.get(buffer)
         if conversation:
             workspace_connect(conversation.workspace)
 
@@ -170,7 +169,7 @@ def command_slack_disconnect(
             else:
                 workspace_disconnect(workspace)
     else:
-        conversation = get_conversation_from_buffer_pointer(buffer)
+        conversation = shared.buffers.get(buffer)
         if conversation:
             workspace_disconnect(conversation.workspace)
 
@@ -179,7 +178,7 @@ def command_slack_disconnect(
 def command_slack_rehistory(
     buffer: str, args: List[str], options: Dict[str, Optional[str]]
 ):
-    conversation = get_conversation_from_buffer_pointer(buffer)
+    conversation = shared.buffers.get(buffer)
     if conversation:
         run_async(conversation.rerender_history())
 
@@ -272,6 +271,16 @@ def command_slack_workspace_del(
     )
 
 
+@weechat_command(min_args=1)
+def command_slack_thread(
+    buffer: str, args: List[str], options: Dict[str, Optional[str]]
+):
+    conversation = shared.buffers.get(buffer)
+    if isinstance(conversation, SlackConversation):
+        thread_id = removeprefix(args[0], "$")
+        run_async(conversation.open_thread(thread_id, switch=True))
+
+
 def print_uncaught_error(
     error: UncaughtError, detailed: bool, options: Dict[str, Optional[str]]
 ):
@@ -300,9 +309,14 @@ def command_slack_debug(
         weechat.prnt("", "Active futures:")
         weechat.prnt("", pprint.pformat(shared.active_futures))
     elif args[0] == "buffer":
-        conversation = get_conversation_from_buffer_pointer(buffer)
-        if conversation:
+        conversation = shared.buffers.get(buffer)
+        if isinstance(conversation, SlackConversation):
             weechat.prnt("", f"Conversation id: {conversation.id}")
+        elif isinstance(conversation, SlackThread):
+            weechat.prnt(
+                "",
+                f"Conversation id: {conversation.parent.conversation.id}, Thread ts: {conversation.parent.thread_ts}, Thread hash: {conversation.parent.hash}",
+            )
     elif args[0] == "errors":
         num_arg = int(args[1]) if len(args) > 1 and args[1].isdecimal() else 5
         num = min(num_arg, len(shared.uncaught_errors))
@@ -427,7 +441,7 @@ def completion_irc_channels_cb(
     return weechat.WEECHAT_RC_OK
 
 
-def complete_input(conversation: SlackConversation, query: str):
+def complete_input(conversation: SlackBuffer, query: str):
     if (
         conversation.completion_context == "ACTIVE_COMPLETION"
         and conversation.completion_values
@@ -452,7 +466,7 @@ def nick_suffix():
 
 
 async def complete_user_next(
-    conversation: SlackConversation, query: str, is_first_word: bool
+    conversation: SlackBuffer, query: str, is_first_word: bool
 ):
     if conversation.completion_context == "NO_COMPLETION":
         conversation.completion_context = "PENDING_COMPLETION"
@@ -474,7 +488,7 @@ async def complete_user_next(
     complete_input(conversation, query)
 
 
-def complete_previous(conversation: SlackConversation, query: str) -> int:
+def complete_previous(conversation: SlackBuffer, query: str) -> int:
     if conversation.completion_context == "ACTIVE_COMPLETION":
         conversation.completion_index -= 1
         if conversation.completion_index < 0:
@@ -485,7 +499,7 @@ def complete_previous(conversation: SlackConversation, query: str) -> int:
 
 
 def input_complete_cb(data: str, buffer: str, command: str) -> int:
-    conversation = get_conversation_from_buffer_pointer(buffer)
+    conversation = shared.buffers.get(buffer)
     if conversation:
         input_value = weechat.buffer_get_string(buffer, "input")
         input_pos = weechat.buffer_get_integer(buffer, "input_pos")
