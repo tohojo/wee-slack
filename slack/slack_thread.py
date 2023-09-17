@@ -71,7 +71,7 @@ class SlackThread(SlackBuffer):
         with self.loading():
             self.history_pending = True
 
-            messages = await self.parent.conversation.fetch_replies(self.parent)
+            messages = await self.parent.conversation.fetch_replies(self.parent.ts)
             if messages is None:
                 return
 
